@@ -1,0 +1,55 @@
+resource "aws_security_group" "zookeeper" {  
+  name        = "zookeeper-security-group"  
+  description = "Allow Zookeeper traffic"  
+  vpc_id      = "${data.aws_vpc.vpc.id}"
+  ingress {
+    from_port       = 2181
+    to_port         = 2181
+    protocol        = "tcp"
+    security_groups = ${data.aws_security_group.kafka.id}
+  }
+  ingress {
+    from_port   = 2888
+    to_port     = 2888
+    protocol    = "tcp"
+    self        = true
+  }
+  ingress {
+    from_port   = 3888
+    to_port     = 3888
+    protocol    = "tcp"
+    self        = true
+  }
+}
+resource "aws_security_group" "zookeeper" {
+  name        = "zookeeper-security-group"
+  description = "Allow Zookeeper traffic"
+  vpc_id      = "${data.aws_vpc.vpc.id}"
+}
+resource "aws_security_group_rule" "allow_zookeeper_quorum" {
+  type                     = "ingress"
+  from_port                = "2181"
+  to_port                  = "2181"
+  protocol                 = "tcp"
+  source_security_group_id = "${data.aws_security_group.kafka.id}"
+  
+  security_group_id = "${aws_security_group.zookeeper.id}"
+}
+resource "aws_instance" "zookeeper" {
+  ami           = "${data.aws_ami.image_latest.id}"
+  instance_type = "${var.instance_type}"
+  key_name      = "${var.key_name}"
+  subnet_id =   
+            "${tolist(data.aws_subnet_ids.public_subnets.ids)[2]}"
+  availability_zone           = "${var.availability_zone}"
+  associate_public_ip_address = true
+  
+  vpc_security_group_ids = 
+                  ["${data.aws_security_group.kafka_cluster.id}",
+                   "${aws_security_group.zookeeper.id}"]
+  depends_on = ["aws_security_group.zookeeper"]
+  count      = "${var.instance_count}"
+}
+root_block_device {
+    volume_size = "${var.volume_size}"
+  }
